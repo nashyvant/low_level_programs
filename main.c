@@ -10,7 +10,7 @@
  *
  */
 
-#if 0
+
 gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* pValue)
 {
 	FILE* input_file = fopen("nvm_file.txt", "r");
@@ -97,7 +97,6 @@ gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pV
 	return 0;
 }
 
-#endif
 char mem[1000];
 void get_num(uint8_t attr, uint8_t *sz, uint8_t *val)
 {
