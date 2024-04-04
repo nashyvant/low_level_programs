@@ -3,16 +3,16 @@
 #include "nvm_api.h"
 
 /**
- * @brief Sets an attribute in the Non-Volatile Memory (NVM).
+ * @brief Gets value of an attribute from the Non-Volatile Memory (NVM).
  *
- * @param attrId The ID of the attribute to set.
+ * @param attrId The ID of the attribute to get.
  * @param length The length of the data pointed to by pValue.
  * @param pValue Pointer to the data to be stored in NVM.
  *
  */
-
 gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* pValue)
 {
+    gpNvm_Result found = 0xFF;
     FILE* input_file = fopen("nv_data.bin", "rb");
 	if (input_file == NULL)
 	{
@@ -25,7 +25,19 @@ gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* 
     {
         if(fscanf(input_file, "%hhu", &curr_sz) == 1)
         {
-            if(curr_attrId == attrId)
+            if(curr_attrId != attrId)
+            {
+                uint8_t *pVal = (uint8_t*)malloc(curr_sz);
+                uint8_t *old_p = pVal;
+                for(int i=0; i< curr_sz; ++i)
+                {
+                    fscanf(input_file, "%hhu", pVal); //You could also use FSEEK here
+                    pVal++;
+                }
+
+                free(old_p);
+            }
+            else
             {
                 *pLength = curr_sz;
                 uint8_t *old_p = pValue;
@@ -39,6 +51,7 @@ gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* 
                 printf("getFromFile found! %d %d\n", attrId, *pLength);
                 //for(int i=0; i< curr_sz; ++i)
                     //printf("0x%x ", pValue[i]);
+                found = 0;
                 break;
             }
         }
@@ -46,16 +59,25 @@ gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* 
 
 	fclose(input_file);
     printf("gpNvm_GetAttribute Complete!\n");
-    return 0;
+    return found;
 }
 
+
+/**
+ * @brief Sets an attribute in the Non-Volatile Memory (NVM).
+ *
+ * @param attrId The ID of the attribute to set.
+ * @param length The length of the data pointed to by pValue.
+ * @param pValue Pointer to the data to be stored in NVM.
+ *
+ */
 gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pValue)
 {
-    FILE* input_file = fopen("nv_data.bin", "rb");
+    FILE* input_file = fopen("nv_data.bin", "rb"); 
     uint8_t bFirstWrite = 0;
 	if (input_file == NULL)
 	{
-        bFirstWrite = 1;
+        bFirstWrite = 1; //to create a new file if a file does not already exist
         input_file = fopen("nv_data.bin", "wb");
         if(input_file == NULL)
         {
@@ -93,6 +115,8 @@ gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pV
                     for(int i=0; i< curr_sz; ++i)
                         fprintf(output_file, "%hhu\n", old_p[i]);
                 }
+
+                free(old_p);
             }
         }
     }
@@ -112,7 +136,10 @@ gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pV
 	if (rename("temp.bin", "nv_data.bin") != 0)
 	{
 		perror("Error renaming temporary file");
+        return 0XFF;
 	}
 
     printf("gpNvm_SetAttribute Complete!\n");
+
+    return 0;
 }
