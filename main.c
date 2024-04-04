@@ -10,7 +10,6 @@
  *
  */
 
-
 gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* pValue)
 {
 	FILE* input_file = fopen("nvm_file.txt", "r");
@@ -19,16 +18,18 @@ gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* 
 		perror("Error opening file");
 		return 0xff;
 	}
+    char *attr_s = "";
 	uint8_t attr = 0; // Adjust the buffer size as needed
 
 	// Read NV file line by line
-	while (fgets((char*)attr, 1, input_file) != NULL)
+	while (fgets(attr_s, 1, input_file) != NULL)
 	{
+        char *sz_s = "";
 		uint8_t size = 0;
-		if (fgets((char*) size, 1, input_file) != NULL)
+		if (fgets(sz_s, 1, input_file) != NULL)
 		{
-			uint8_t data[1000];
-			while (fgets((char*)data, size, input_file) != NULL)
+			char data[1000];
+			while (fgets(data, size, input_file) != NULL)
 			{
 				if (attr == attrId)
 				{
@@ -45,6 +46,14 @@ gpNvm_Result gpNvm_GetAttribute(gpNvm_AttrId attrId, uint8_t* pLength, uint8_t* 
 
 gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pValue)
 {
+    char *str_attr = "", *str_len = "";
+    char str_val[1000];
+
+    memcpy(str_attr, (char*) attrId, 1);
+    memcpy(str_len, (char*) length, 1);
+    memcpy(str_val, pValue, length);
+    str_val[length] = '\0';
+
 	FILE* input_file = fopen("nvm_file.txt", "r");
 	if (input_file == NULL)
 	{
@@ -60,31 +69,36 @@ gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pV
 		return 0xff;
 	}
 
+    char *attr_s = "";
+    char *sz_s = "";
 	uint8_t attr=0; // Adjust the buffer size as needed
 
 	// Read input file line by line
-	while (fgets((char*)attr, sizeof(attr), input_file) != NULL)
+	while (fgets(attr_s, 1, input_file) != NULL)
 	{
 		uint8_t size = 0;
-		if (fgets((char*)size, sizeof(size), input_file) != NULL)
+		if (fgets(sz_s, 1, input_file) != NULL)
 		{
 			char data[1000];
 			while (fgets((char*)data, size, input_file) != NULL)
 			{
+                memcpy(attr, attr_s, 1);
+                memcpy(size, sz_s, 1);
+                
 				if (attr != attrId)
 				{
-					fputs((const char*)attrId, output_file);
-					fputs((const char*)size, output_file);
-					fputs(data, output_file);
+					fputs(str_attr, output_file);
+					fputs(str_len, output_file);
+					fputs(str_val, output_file);
 				}
 			}
 		}
 	}
 
 	//now add the given set attribute
-	fputs((const char*)attrId, output_file);
-	fputs((const char*)length, output_file);
-	fputs((const char*)pValue, output_file);
+	fputs(str_attr, output_file);
+	fputs(str_len, output_file);
+	fputs(str_val, output_file);
 
 	fclose(input_file);
 	fclose(output_file);
@@ -97,6 +111,7 @@ gpNvm_Result gpNvm_SetAttribute(gpNvm_AttrId attrId, uint8_t length, uint8_t* pV
 	return 0;
 }
 
+#if 0
 char mem[1000];
 void get_num(uint8_t attr, uint8_t *sz, uint8_t *val)
 {
@@ -125,28 +140,105 @@ void set_num(uint8_t attr, uint8_t sz, uint8_t *val)
     memcpy(mem, &d, sz);
 }
 
+#endif
+
+void getFromFile(uint8_t attrId, uint8_t *pLength, uint8_t *pValue)
+{
+    FILE* input_file = fopen("nv_data.bin", "rb");
+	if (input_file == NULL)
+	{
+		perror("Error opening file");
+		return ;
+	}
+
+    uint8_t curr_attrId, curr_sz;
+    while(fscanf(input_file, "%hhu", &curr_attrId) == 1)
+    {
+        if(fscanf(input_file, "%hhu", &curr_sz) == 1)
+        {
+            if(curr_attrId == attrId)
+            {
+                *pLength = curr_sz;
+                uint8_t *old_p = pValue;
+                for(int i=0; i< curr_sz; ++i)
+                {
+                    fscanf(input_file, "%hhu", pValue);
+                    pValue++;
+                }
+
+                pValue = old_p;
+                printf("\ngetFromFile found! %d %d\n", attrId, *pLength);
+                for(int i=0; i< curr_sz; ++i)
+                    printf("0x%x ", pValue[i]);
+                break;
+            }
+        }
+    }
+
+	fclose(input_file);
+    printf("getFromFile Complete\n");
+}
+
+void writeToFile(uint8_t attr, uint8_t sz, uint8_t *val)
+{
+    FILE* input_file = fopen("nv_data.bin", "rb");
+	if (input_file == NULL)
+	{
+		perror("Error opening NV file");
+		return ;
+	}
+
+	FILE* output_file = fopen("temp.bin", "ab");
+	if (output_file == NULL)
+	{
+		perror("Error creating temporary file");
+		fclose(input_file);
+		return;
+	}
+
+    for(int i=0; i<sz; ++i)
+        printf("0x%x ", val[i]);
+	//now add the given set attribute
+	fprintf(output_file, "%hhu\n%hhu\n", attr, sz);
+    for(int i=0; i<sz; ++i)
+        //fwrite(val++, sizeof(uint8_t), sizeof(uint8_t), output_file);
+        fprintf(output_file, "%hhu\n", val[i]);
+
+	fclose(output_file);
+    printf("WriteToFile Complete\n");
+}
+
 int main()
 {
-    float f = 65.8;
-    printf("old f value: %x %f", f, f);
+    float f = 65.8f;
+    printf("old f value: %f\n", f);
     
-    uint8_t *v = &f;
+    uint8_t *v = (uint8_t*) &f;
     for(int i=0; i<4; ++i)
-        printf("\n%x", v[i]);
+        printf("0x%x ", v[i]);
     
-    set_num(46, sizeof(f), (uint8_t*)&f);
+    //gpNvm_SetAttribute(46, sizeof(f), (uint8_t*)&f);
+    writeToFile(45, 4, v);
     
     uint8_t len = 0;
+    uint8_t val_read[1000];
+    getFromFile(45, &len, val_read);
+
+    float new_f = *((float*)val_read);
+    printf("reading float value %f", new_f);
+
+    #if 0
+    uint8_t len = 0;
     float ff = 0.0;
-    get_num(46, &len, (uint8_t*)&ff);
+    gpNvm_GetAttribute(46, &len, (uint8_t*)&ff);
     printf("\nsize: %d ff: %f", len, ff);
     
     int a = 349587;
     printf("\n a: %x %d", a, a);
-    set_num(45, sizeof(a), (uint8_t*)&a);
+    gpNvm_SetAttribute(45, sizeof(a), (uint8_t*)&a);
     
     int aa = 0;
-    get_num(45, &len, (uint8_t*)&aa);
+    gpNvm_GetAttribute(45, &len, (uint8_t*)&aa);
     printf("\nsize: %d aa: %d", len, aa);
-
+    #endif
 }
